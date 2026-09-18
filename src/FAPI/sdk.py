@@ -348,7 +348,7 @@ class StringValue(Instance):
             allocation_type=MEM_COMMIT | MEM_RESERVE,
             protection_type=PAGE_READWRITE,
         )
-        self.memory.write_bytes(self.content_ptr, encoded + b"\\x00", len(encoded) + 1)
+        self.memory.write_bytes(self.content_ptr, encoded + bytes((0,)), len(encoded) + 1)
         self.memory.write_ulonglong(
             self.address + self.offsets.value, self.content_ptr
         )
