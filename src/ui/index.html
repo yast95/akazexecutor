@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AkazExecutor</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="titlebar">
+      <div class="brand">
+        <div class="brand-mark">A</div>
+        <div>
+          <div class="brand-name">Akaz</div>
+          <div class="brand-sub">Executor</div>
+        </div>
+      </div>
+      <div class="title-actions">
+        <button class="chrome-btn" data-action="minimize" aria-label="Minimize">−</button>
+        <button class="chrome-btn" data-action="maximize" aria-label="Maximize">□</button>
+        <button class="chrome-btn close" data-action="close" aria-label="Close">×</button>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <aside class="rail">
+        <button class="rail-btn active" data-screen="editor" title="Editor">
+          <svg viewBox="0 0 24 24"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></svg>
+        </button>
+        <button class="rail-btn" data-screen="runtime" title="Runtime">
+          <svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM7 9h10M7 13h6M7 17h8"/></svg>
+        </button>
+        <button class="rail-btn" data-screen="settings" title="Settings">
+          <svg viewBox="0 0 24 24"><path d="M12 8.5A3.5 3.5 0 1 0 12 15.5A3.5 3.5 0 0 0 12 8.5zM19 12a7.3 7.3 0 0 0-.1-1.1l2-1.6-2-3.4-2.4 1a7.5 7.5 0 0 0-1.9-1.1L14.3 3h-4.6l-.4 2.8A7.5 7.5 0 0 0 7.4 7L5 6 3 9.4l2 1.6A7.3 7.3 0 0 0 4.9 12c0 .4 0 .8.1 1.1l-2 1.6L5 18.1l2.4-1a7.5 7.5 0 0 0 1.9 1.1l.4 2.8h4.6l.4-2.8a7.5 7.5 0 0 0 1.9-1.1l2.4 1 2-3.4-2-1.6c.1-.4.1-.7.1-1.1z"/></svg>
+        </button>
+        <div class="rail-spacer"></div>
+        <div class="rail-state" id="railState"><span></span></div>
+      </aside>
+
+      <aside class="sidebar">
+        <div class="sidebar-section-title">
+          <span>EXPLORER</span>
+          <div class="tiny-actions">
+            <button id="newTab" title="New tab">+</button>
+            <button id="refreshTabs" title="Refresh">↻</button>
+          </div>
+        </div>
+
+        <div class="search-wrap">
+          <svg viewBox="0 0 24 24"><path d="M10.7 4a6.7 6.7 0 1 0 4.2 12l4.1 4.1 1.4-1.4-4.1-4.1A6.7 6.7 0 0 0 10.7 4z"/></svg>
+          <input id="searchTabs" placeholder="Search">
+        </div>
+
+        <div class="tree-label">SCRIPTS</div>
+        <div class="tab-list" id="tabList"></div>
+
+        <div class="tree-label auto">AUTO EXECUTION</div>
+        <div class="empty-note">No files configured</div>
+      </aside>
+
+      <main class="main">
+        <section class="screen editor-screen" data-screen-panel="editor">
+          <div class="tab-strip" id="tabStrip">
+            <div class="workspace-tab welcome-tab active" data-id="welcome">
+              <span class="tab-dot welcome-dot"></span>
+              <span>Welcome</span>
+            </div>
+          </div>
+
+          <div class="toolbar">
+            <div class="breadcrumbs">
+              <span class="muted">Workspace</span>
+              <span class="crumb-sep">/</span>
+              <span id="breadcrumbName">Script 1</span>
+            </div>
+            <div class="toolbar-actions">
+              <button class="ghost-btn" id="importBtn">Import</button>
+              <button class="ghost-btn" id="exportBtn">Export</button>
+              <button class="run-btn" id="runBtn"><span class="run-icon">▶</span>Run</button>
+              <button class="attach-btn" id="injectBtn"><span class="state-dot"></span>Attach</button>
+            </div>
+          </div>
+
+          <div class="editor-frame">
+            <div class="editor-header">
+              <span>Luau</span>
+              <span class="editor-hint">Ctrl + Enter to run · Ctrl + S to export</span>
+            </div>
+            <div class="editor-wrap">
+              <div class="gutter" id="gutter"></div>
+              <div class="editor-stack">
+                <pre class="highlight" id="highlight" aria-hidden="true"></pre>
+                <textarea id="editor" spellcheck="false" wrap="off" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <section class="console-panel" id="consolePanel">
+            <div class="console-head">
+              <div class="console-title"><span class="console-led"></span>TERMINAL</div>
+              <div class="console-actions"><button id="clearConsole">Clear</button><button id="collapseConsole">⌄</button></div>
+            </div>
+            <div class="console-body" id="consoleBody"></div>
+          </section>
+
+          <footer class="statusbar">
+            <div id="cursorStatus">Ln 1, Col 1</div>
+            <div class="status-divider"></div>
+            <div>Spaces: 4</div>
+            <div class="status-divider"></div>
+            <div>UTF-8</div>
+            <div class="status-divider"></div>
+            <div>Luau</div>
+            <div class="status-spacer"></div>
+            <div id="runtimeStatusText">Offline</div>
+            <div class="status-divider"></div>
+            <div class="runtime-led" id="runtimeLed"></div>
+          </footer>
+        </section>
+
+        <section class="screen runtime-screen hidden" data-screen-panel="runtime">
+          <div class="settings-head">
+            <div>
+              <div class="page-kicker">RUNTIME</div>
+              <h1>Runtime status</h1>
+              <p>Connection and local runtime information.</p>
+            </div>
+            <button class="ghost-btn" id="refreshRuntime">Refresh</button>
+          </div>
+
+          <div class="cards">
+            <div class="info-card"><div class="card-label">STATE</div><div class="card-value" id="runtimeState">Offline</div><div class="card-sub" id="runtimeDetail">Roblox not detected</div></div>
+            <div class="info-card"><div class="card-label">PROCESS</div><div class="card-value mono" id="runtimePid">—</div><div class="card-sub">RobloxPlayerBeta.exe</div></div>
+            <div class="info-card"><div class="card-label">VERSION</div><div class="card-value mono" id="runtimeVersion">—</div><div class="card-sub">Detected build</div></div>
+          </div>
+
+          <div class="panel-card">
+            <div class="panel-card-head"><span>SESSION</span><span class="panel-note">LOCAL</span></div>
+            <div class="session-row"><span>Roblox detected</span><span id="sessionRoblox">No</span></div>
+            <div class="session-row"><span>Runtime attached</span><span id="sessionInjected">No</span></div>
+          </div>
+        </section>
+
+        <section class="screen settings-screen hidden" data-screen-panel="settings">
+          <div class="settings-head">
+            <div>
+              <div class="page-kicker">PREFERENCES</div>
+              <h1>Settings</h1>
+              <p>Small controls only. No unnecessary dashboard clutter.</p>
+            </div>
+          </div>
+
+          <div class="panel-card">
+            <div class="setting-row">
+              <div><div class="setting-title">Always on top</div><div class="setting-desc">Keep Akaz above other windows.</div></div>
+              <label class="switch"><input type="checkbox" id="alwaysOnTop"><span></span></label>
+            </div>
+            <div class="setting-row">
+              <div><div class="setting-title">Large editor text</div><div class="setting-desc">Increase the editor font without changing the chrome.</div></div>
+              <label class="switch"><input type="checkbox" id="largeEditor"><span></span></label>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
