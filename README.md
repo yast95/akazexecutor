@@ -1,44 +1,32 @@
-# Funny Executor
+# AkazExecutor
 
-> A lightweight and simple Roblox executor.
+A lightweight Roblox desktop executor with a WebView-based editor and an Aero-inspired dark interface.
 
-## 📸 Showcase
-<img width="1920" height="1010" alt="{8AC10F7A-E997-4E93-A9D2-576A72A04F9A}" src="https://github.com/user-attachments/assets/f588437a-e630-47ee-9d7a-e3861908e1de" />
+## UI
 
----
-## 📊 Compatiblity Status
+- WebView desktop shell built with PySide6 + Qt WebEngine.
+- Explorer sidebar with searchable script tabs.
+- Multi-tab Luau editor with line numbers and syntax highlighting.
+- Integrated terminal/status area.
+- Runtime page for connection state, process ID and detected build.
+- Minimal settings page.
+- Keyboard shortcuts: **Ctrl+Enter** run, **Ctrl+S** export, **Ctrl+Shift+N** new tab.
+- Local assets only; no UI framework or icon CDN is required at runtime.
 
-| Tests                                  | Result |
-| -------------------------------------- | -----: |
-| **UNC**                                |    67% |
-| **sUNC**                               |     ?% |
-| **MVT**                                |    62% |
-| **IDENTITY**                           | LEVEL 3|
+## Runtime architecture
 
+The Python backend remains separated from the WebView layer. Runtime actions are bridged through Qt WebChannel so the interface can evolve without coupling the editor to the low-level backend.
 
----
+## Installation
 
-##  Disclaimer
+Install the dependencies from `requirements.txt`, including the Qt WebEngine addon used by `QWebEngineView`.
 
-> **We do not condone the use of malicious Roblox scripts or abuse of Roblox executors.**
->
-> This project is provided **for entertainment and educational purposes only**.
->
-> The current method is **UD**. However, using executors may result in a ban during a Roblox ban wave.
->
-> **Use at your own risk. <3**
+Run:
 
----
+```text
+python src/main.py
+```
 
-## 💖 Support
+## Notes
 
-### Project Donations
-
-If you'd like to support **Funny Executor**, you can donate using the official project's wallet addresses:
-
-**BTC:**
-`0x52ef074a0fb46e9c6c675b646aaed154b360d26a`
-
-### Community
-
-**[Discord](https://discord.gg/fmTJvVmnA2)**
+The project is provided for educational and testing purposes. Runtime behavior depends on the current Roblox build and the external offset source used by the backend.
