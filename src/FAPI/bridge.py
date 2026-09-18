@@ -25,13 +25,26 @@ import pyperclip
 import requests
 from .compiler import Luau, BytecodeError
 
-appdata = Path(os.environ['APPDATA'])
-parent = appdata / 'FunnyExecutor'
+appdata = Path(os.environ.get('APPDATA', str(Path.home() / 'AppData' / 'Roaming')))
 old_parent = Path(__file__).resolve().parent
+legacy_parent = appdata / 'FunnyExecutor'
+parent = appdata / 'AkazExecutor'
+parent.mkdir(parents=True, exist_ok=True)
 
-if os.path.exists(old_parent / 'workspace'):
-    shutil.copytree(old_parent / 'workspace', appdata / 'workspace')
-    shutil.rmtree(old_parent / 'workspace')
+# Migrate the old workspace once, without copying it into an unrelated root.
+legacy_workspace = legacy_parent / 'workspace'
+workspace_root = parent / 'workspace'
+if legacy_workspace.is_dir() and not workspace_root.exists():
+    try:
+        shutil.copytree(legacy_workspace, workspace_root)
+    except OSError:
+        pass
+
+if workspace_root.is_dir():
+    try:
+        shutil.rmtree(old_parent / 'workspace')
+    except OSError:
+        pass
 
 blocked_extensions = {
     ".exe", ".scr", ".bat", ".com", ".csh", ".msi", ".vb", ".vbs",
