@@ -3,102 +3,117 @@ import re
 import struct
 import subprocess
 import tempfile
-import time
 from pathlib import Path
 
 import zstandard
 
 parent = Path(__file__).resolve().parent
+COMPILER_PATH = parent / "luau" / "compile.exe"
+MAX_DECOMPRESSED_BYTECODE = 50 * 1024 * 1024
+COMPILE_TIMEOUT_SECONDS = 20
 
-class BytecodeError(Exception): pass
+
+class BytecodeError(Exception):
+    pass
+
 
 WINDOWS_RESERVED = {
-    'CON', 'PRN', 'AUX', 'NUL',
-    *(f'COM{i}' for i in range(1, 10)),
-    *(f'LPT{i}' for i in range(1, 10)),
+    "CON", "PRN", "AUX", "NUL",
+    *(f"COM{i}" for i in range(1, 10)),
+    *(f"LPT{i}" for i in range(1, 10)),
 }
 
+
 def safe_chunkname(chunkname: str) -> str:
-    name = (chunkname or '').strip()
-    name = re.sub(r'[\\/:*?"<>|]', '_', name)
-    name = name.strip(' .') or 'chunk'
+    name = (chunkname or "").strip()
+    name = re.sub(r'[\\/:*?"<>|]', "_", name)
+    name = name.strip(" .") or "chunk"
     if name.upper() in WINDOWS_RESERVED:
-        name = '_' + name
+        name = "_" + name
     return name[:120]
+
 
 class Luau:
     @staticmethod
-    def compile(source: str | bytes, chunkname: str = ''):
-        if chunkname:
-            with tempfile.TemporaryDirectory(prefix='FunnyExecutor-Chunk-') as tmpdir:
-                name = safe_chunkname(chunkname)
-                path = os.path.join(tmpdir, name)
-                Luau._write_source(path, source)
-                result = subprocess.run(
-                    [parent/'luau'/'compile.exe', name, '--binary'],
-                    capture_output=True,
-                    cwd=tmpdir
-                )
-                if result.returncode != 0:
-                    raise BytecodeError(
-                        'Luau compile error:\n'
-                        + result.stderr.decode('utf-8', 'replace').strip()
-                    )
-            return result.stdout
+    def _normalize_source(source: str | bytes) -> str | bytes:
+        if not isinstance(source, (str, bytes)):
+            raise TypeError("source must be str or bytes")
+        return source
 
-        path = tempfile.gettempdir() + f'\\FunnyExecutor-Temp-Source-{os.getpid()}-{time.time_ns()}.luau'
+    @staticmethod
+    def _run_compiler(source_path: Path, cwd: Path | None = None) -> bytes:
+        if not COMPILER_PATH.is_file():
+            raise BytecodeError(f"Luau compiler not found: {COMPILER_PATH}")
 
         try:
-            Luau._write_source(path, source)
             result = subprocess.run(
-                [parent/'luau'/'compile.exe', path, '--binary'],
-                capture_output=True
+                [str(COMPILER_PATH), str(source_path.name) if cwd else str(source_path), "--binary"],
+                capture_output=True,
+                cwd=str(cwd) if cwd else None,
+                timeout=COMPILE_TIMEOUT_SECONDS,
+                check=False,
             )
-            if result.returncode != 0:
-                raise BytecodeError(
-                    'Luau compile error:\n'
-                    + result.stderr.decode('utf-8', 'replace').strip()
-                )
-        finally:
-            try:
-                os.remove(path)
-            except OSError:
-                pass
+        except subprocess.TimeoutExpired:
+            raise BytecodeError("Luau compilation timed out")
+        except OSError as exc:
+            raise BytecodeError(f"Failed to start Luau compiler: {exc}") from exc
+
+        if result.returncode != 0:
+            stderr = (result.stderr or b"").decode("utf-8", "replace").strip()
+            stdout = (result.stdout or b"").decode("utf-8", "replace").strip()
+            detail = stderr or stdout or f"compiler exited with code {result.returncode}"
+            raise BytecodeError(f"Luau compile error:\n{detail}")
 
         return result.stdout
 
     @staticmethod
-    def decrypt_bytecode(encrypted: bytes) -> bytes:
-        if len(encrypted) < 8:
-            raise BytecodeError('bytecode too short')
+    def compile(source: str | bytes, chunkname: str = "") -> bytes:
+        source = Luau._normalize_source(source)
 
-        sign = b'RSB1'
+        with tempfile.TemporaryDirectory(prefix="AkazExecutor-Chunk-") as tmpdir:
+            tmp_path = Path(tmpdir)
+            safe_name = safe_chunkname(chunkname) if chunkname else "source.luau"
+            source_path = tmp_path / safe_name
+
+            Luau._write_source(source_path, source)
+            return Luau._run_compiler(source_path, cwd=tmp_path)
+
+    @staticmethod
+    def decrypt_bytecode(encrypted: bytes) -> bytes:
+        if not isinstance(encrypted, (bytes, bytearray)):
+            raise TypeError("encrypted bytecode must be bytes-like")
+        if len(encrypted) < 8:
+            raise BytecodeError("bytecode too short")
+
+        sign = b"RSB1"
         hash_mul = 41
 
         buffer = bytearray(encrypted)
-        key = [0] * 4
-
-        for i in range(4):
-            key[i] = ((buffer[i] ^ sign[i]) - i * hash_mul) & 0xFF
+        key = [((buffer[i] ^ sign[i]) - i * hash_mul) & 0xFF for i in range(4)]
 
         for i in range(len(buffer)):
             buffer[i] ^= (key[i % 4] + i * hash_mul) & 0xFF
 
         if not buffer.startswith(sign):
-            raise BytecodeError('decryption failed')
+            raise BytecodeError("decryption failed")
 
-        decomp_size = struct.unpack_from('<I', buffer, 4)[0]
+        decomp_size = struct.unpack_from("<I", buffer, 4)[0]
+        if decomp_size <= 0 or decomp_size > MAX_DECOMPRESSED_BYTECODE:
+            raise BytecodeError("invalid decompressed bytecode size")
 
-        if decomp_size == 0 or decomp_size > 50 * 1024 * 1024:
-            raise BytecodeError('decompression failed')
+        try:
+            result = zstandard.ZstdDecompressor().decompress(bytes(buffer[8:]), decomp_size)
+        except zstandard.ZstdError as exc:
+            raise BytecodeError("decompression failed") from exc
 
-        return zstandard.ZstdDecompressor().decompress(bytes(buffer[8:]), decomp_size)
+        if len(result) != decomp_size:
+            raise BytecodeError("decompression produced an unexpected size")
+
+        return result
 
     @staticmethod
-    def _write_source(path: str, source: str | bytes):
-        if type(source) == str:
-            with open(path, 'w', encoding='utf-8') as f:
-                f.write(source)
+    def _write_source(path: Path, source: str | bytes) -> None:
+        if isinstance(source, str):
+            path.write_text(source, encoding="utf-8")
         else:
-            with open(path, 'wb') as f:
-                f.write(source)
+            path.write_bytes(source)
