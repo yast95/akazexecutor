@@ -1,0 +1,9 @@
+pymem
+pywin32
+pydirectinput
+requests
+pyperclip
+psutil
+PySide6
+zstandard
+websocket-client
