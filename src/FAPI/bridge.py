@@ -329,7 +329,7 @@ input_handlers = {
     'keyclick': lambda a: pydirectinput.press(a[0].decode('utf-8')),
     'keydown': lambda a: pydirectinput.keyDown(a[0].decode('utf-8')),
     'keyup': lambda a: pydirectinput.keyUp(a[0].decode('utf-8')),
-    'keypress': lambda a: pydirectinput.keyDown(a[0].decode('utf-8')),
+    'keypress': lambda a: pydirectinput.press(a[0].decode('utf-8')),
     'keyrelease': lambda a: pydirectinput.keyUp(a[0].decode('utf-8')),
     'mousescroll': lambda a: pydirectinput.scroll(int(a[0])),
 }
@@ -365,7 +365,10 @@ def recv_method(method, args):
         return b'ok'
 
     elif method == 'getclipboard':
-        return pyperclip.paste().encode('utf-8')
+        try:
+            return pyperclip.paste().encode('utf-8')
+        except Exception:
+            return b'fail'
 
     elif method == 'compile':
         try:
@@ -377,8 +380,8 @@ def recv_method(method, args):
             return b'fail'
         try:
             return base64.b64encode(Luau.compile(source, chunkname))
-        except subprocess.CalledProcessError as e:
-            return b'fail\n' + (e.stderr or b'compile error').strip()
+        except BytecodeError as e:
+            return b'fail\n' + str(e).encode('utf-8', 'replace')
 
     elif method == 'setfpscap':
         try:
@@ -866,17 +869,27 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(_target_source)
 
     def do_POST(self):
-        content_length = int(self.headers.get('Content-Length', 0))
+        try:
+            content_length = int(self.headers.get('Content-Length', '0'))
+        except (TypeError, ValueError):
+            self.send_error(400, "invalid content length")
+            return
+
+        if content_length < 0 or content_length > MAX_REQUEST_BYTES:
+            self.send_error(413, "request too large")
+            return
+
         body_data = self.rfile.read(content_length)
-
         args = body_data.split(b'\n')
-        method = args.pop(0).decode('utf-8')
+        method = args.pop(0).decode('utf-8', 'replace')
 
-        response = recv_method(method, args)
-        print(response)
+        try:
+            response = recv_method(method, args)
+        except Exception as exc:
+            response = f"fail: {type(exc).__name__}: {exc}".encode('utf-8', 'replace')
 
         self.send_response(200)
-        self.send_header("Content-Type", "text/plain")  # application/json
+        self.send_header("Content-Type", "text/plain")
         self.send_header("Content-Length", str(len(response)))
         self.end_headers()
 
@@ -885,12 +898,40 @@ class Handler(BaseHTTPRequestHandler):
 _target_source = b'1234'
 PORT = 9475
 
+_httpd = None
+_httpd_lock = Lock()
+MAX_REQUEST_BYTES = 8 * 1024 * 1024
+
+
+class ReusableThreadingTCPServer(socketserver.ThreadingTCPServer):
+    allow_reuse_address = True
+    daemon_threads = True
+
+
 def start_bridge():
-    httpd = socketserver.ThreadingTCPServer(("127.0.0.1", PORT), Handler)
-    httpd.daemon_threads = True
-    Thread(target=httpd.serve_forever, daemon=True).start()
+    global _httpd
+    with _httpd_lock:
+        if _httpd is not None:
+            return
+        _httpd = ReusableThreadingTCPServer(("127.0.0.1", PORT), Handler)
+
+    Thread(target=_httpd.serve_forever, daemon=True).start()
     cleanup_customassets()
+    atexit.register(stop_bridge)
     atexit.register(cleanup_customassets)
+
+
+def stop_bridge():
+    global _httpd
+    with _httpd_lock:
+        httpd = _httpd
+        _httpd = None
+
+    if httpd is not None:
+        try:
+            httpd.shutdown()
+        finally:
+            httpd.server_close()
 
 def create_workspace():
     if not (parent / 'workspace').is_dir():
