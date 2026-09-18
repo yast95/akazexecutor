@@ -5,7 +5,9 @@ from tempfile import NamedTemporaryFile
 
 import requests
 
-appdata = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming")) / "FunnyExecutor"
+appdata_root = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
+legacy_appdata = appdata_root / "FunnyExecutor"
+appdata = appdata_root / "AkazExecutor"
 appdata.mkdir(parents=True, exist_ok=True)
 
 OFFSETS_BASE_URL = "https://offsets.imtheo.lol"
