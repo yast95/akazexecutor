@@ -110,8 +110,14 @@ class AppController(QObject):
             try:
                 if not FAPI.roblox_open():
                     raise RuntimeError("Roblox is not running")
+
+                deadline = time.monotonic() + 10.0
+                while self._loading and time.monotonic() < deadline:
+                    time.sleep(0.05)
+
                 if self.executor is None or self.sdk is None:
                     self._load_worker()
+
                 if self.executor is None:
                     raise RuntimeError("Runtime could not be initialized")
 
