@@ -70,6 +70,8 @@ button{color:inherit;border:0;background:none}
 .tab-strip{height:38px;display:flex;align-items:flex-end;gap:1px;border-bottom:1px solid var(--line);background:#0d1013;padding-left:7px;overflow:hidden}
 .workspace-tab{height:35px;padding:0 13px;display:flex;align-items:center;gap:8px;min-width:120px;color:#7e8791;border-right:1px solid var(--line-soft);cursor:pointer;font-size:11px}
 .workspace-tab.active{color:#e5e9ed;background:#12161a;border-top:1px solid #536473}
+.tab-close{display:none;width:18px;height:18px;border-radius:4px;color:#65717c;cursor:pointer;font-size:12px;line-height:18px;text-align:center}
+.workspace-tab:hover .tab-close{display:block}.tab-close:hover{background:#272d34;color:#e6ebef}
 .workspace-tab .tab-dot{width:6px;height:6px;border-radius:50%;background:#59646f}
 .workspace-tab.active .tab-dot{background:#a7b9c9}
 .welcome-dot{border:1px solid #667380}
