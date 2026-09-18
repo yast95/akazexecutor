@@ -53,7 +53,7 @@ class Offsets:
             "fake_datamodel_ptr", "real_datamodel_ptr", "ins_name",
             "ins_name_container", "ins_class_desc", "ins_class_name",
             "ins_parent", "ins_children_start", "ins_children_end",
-            "module_bytecode", "bytecode_ptr", "bytecode_size",
+            "module_bytecode", "local_bytecode", "bytecode_ptr", "bytecode_size",
             "fflag_enable_load_module", "value", "string_length",
         }
         missing = required - set(data)
@@ -79,7 +79,10 @@ class Offsets:
         self.bytecode_ptr = data["bytecode_ptr"]
         self.bytecode_size = data["bytecode_size"]
         self.fflag_enable_load_module = data["fflag_enable_load_module"]
-        self.fflag_task_scheduler_target_fps = data.get("fflag_task_scheduler_target_fps")
+        fps_offset = data.get("fflag_task_scheduler_target_fps")
+        if fps_offset is not None and (not isinstance(fps_offset, int) or fps_offset < 0):
+            raise CacheError("invalid offset value for fflag_task_scheduler_target_fps")
+        self.fflag_task_scheduler_target_fps = fps_offset
         self.value = data["value"]
         self.string_length = data["string_length"]
 
